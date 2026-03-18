@@ -159,11 +159,11 @@
   </div>
 
   <!-- 연락처 & 계좌번호 -->
-  <div class="contact-info">
+  <div class="contact-info" id="contactInfoWrap">
     <div class="contact-row">
       <div class="contact-item">
         <i class="fas fa-phone"></i>
-        <span><strong>042-000-0000</strong></span>
+        <span><strong id="displayTel">042-000-0000</strong></span>
       </div>
       <div style="width:1px;height:16px;background:var(--gray-300)"></div>
       <div class="contact-item">
@@ -173,7 +173,7 @@
     </div>
     <div class="account-row">
       <i class="fas fa-piggy-bank"></i>
-      <span>농협은행 &nbsp;<strong>0000-0000-0000-0000</strong>&nbsp; (예금주: 국가대표)</span>
+      <span id="displayAccount">농협은행 &nbsp;<strong>0000-0000-0000-0000</strong>&nbsp; (예금주: 국가대표)</span>
     </div>
   </div>
 
@@ -258,6 +258,16 @@
 </div>
 
 <script>
+  function getShopInfo(){
+    const def={tel:'042-000-0000',bankName:'농협은행',account:'0000-0000-0000-0000',holder:'국가대표'};
+    try{return Object.assign({},def,JSON.parse(localStorage.getItem('sinsun_shop_info')||'{}'));}catch(e){return def;}
+  }
+  function renderShopInfo(){
+    const info=getShopInfo();
+    document.getElementById('displayTel').textContent=info.tel;
+    document.getElementById('displayAccount').innerHTML=`${info.bankName} &nbsp;<strong>${info.account}</strong>&nbsp; (예금주: ${info.holder})`;
+  }
+
   const DEFAULT_PRODUCTS=[
     {id:'cabbage',   name:'유기농 양배추',    emoji:'🥬',category:'채소',price:3000, unit:'개',  bg:'#f0faf5',active:true},
     {id:'apple',     name:'꿀사과 (5입)',     emoji:'🍎',category:'과일',price:12000,unit:'박스',bg:'#fff8e1',active:true},
@@ -359,7 +369,11 @@
   let _tt;
   function showToast(msg){let t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#333;color:white;padding:12px 22px;border-radius:30px;font-size:.9em;font-weight:500;z-index:2000;box-shadow:0 4px 20px rgba(0,0,0,.25);transition:opacity .3s;white-space:nowrap;';document.body.appendChild(t);}t.textContent=msg;t.style.opacity='1';clearTimeout(_tt);_tt=setTimeout(()=>t.style.opacity='0',2500);}
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
-  window.addEventListener('storage',e=>{if(e.key==='sinsun_products')buildProductList();});
+  window.addEventListener('storage',e=>{
+    if(e.key==='sinsun_products')buildProductList();
+    if(e.key==='sinsun_shop_info')renderShopInfo();
+  });
+  renderShopInfo();
   buildProductList();
 </script>
 </body>
