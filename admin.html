@@ -430,12 +430,39 @@
           </div>
         </div>
         <div class="settings-card">
-          <h3><i class="fas fa-circle-info" style="color:var(--blue)"></i> 시스템 정보</h3>
-          <div style="display:flex;flex-direction:column;gap:12px;font-size:.85em;">
-            <div class="qr-info-item"><i class="fas fa-store"></i><span>상호: <strong>국가대표 FRESH MARKET</strong></span></div>
-            <div class="qr-info-item"><i class="fas fa-phone"></i><span>전화: <strong>042-000-0000</strong></span></div>
-            <div class="qr-info-item"><i class="fas fa-piggy-bank"></i><span>계좌: <strong>농협은행 0000-0000-0000-0000</strong></span></div>
-            <div class="qr-info-item"><i class="fas fa-database"></i><span id="dataInfoText">주문 데이터 로딩 중...</span></div>
+          <h3><i class="fas fa-store" style="color:var(--green)"></i> 가게 정보 수정</h3>
+          <div class="pw-form">
+            <div class="pw-field">
+              <label>전화번호</label>
+              <div class="pw-input-wrap">
+                <input class="pw-input" type="tel" id="shopTel" placeholder="예: 042-000-0000" style="padding-right:14px"/>
+              </div>
+            </div>
+            <div class="pw-field">
+              <label>은행명</label>
+              <div class="pw-input-wrap">
+                <input class="pw-input" type="text" id="shopBankName" placeholder="예: 농협은행" style="padding-right:14px"/>
+              </div>
+            </div>
+            <div class="pw-field">
+              <label>계좌번호</label>
+              <div class="pw-input-wrap">
+                <input class="pw-input" type="text" id="shopAccount" placeholder="예: 0000-0000-0000-0000" style="padding-right:14px"/>
+              </div>
+            </div>
+            <div class="pw-field">
+              <label>예금주</label>
+              <div class="pw-input-wrap">
+                <input class="pw-input" type="text" id="shopAccountHolder" placeholder="예: 국가대표" style="padding-right:14px"/>
+              </div>
+            </div>
+            <button class="pw-save-btn" onclick="saveShopInfo()"><i class="fas fa-check"></i> 저장하기</button>
+            <div style="margin-top:8px;padding:10px 12px;background:var(--bg3);border-radius:8px;font-size:.78em;color:var(--text3);">
+              <i class="fas fa-circle-info" style="color:var(--blue)"></i>&nbsp;저장하면 주문서 화면에 즉시 반영됩니다.
+            </div>
+            <div style="margin-top:4px;font-size:.78em;color:var(--text3);">
+              <i class="fas fa-database"></i>&nbsp;<span id="dataInfoText">주문 데이터 로딩 중...</span>
+            </div>
           </div>
         </div>
       </div>
@@ -538,7 +565,7 @@ function switchTab(name,btn){
   btn.classList.add('active');
   if(name==='products')renderProducts();
   if(name==='orders')renderAll();
-  if(name==='settings')updateDataInfo();
+  if(name==='settings'){updateDataInfo();loadShopInfoToForm();}
 }
 
 /* ════════════════════════════════
@@ -752,6 +779,31 @@ function copyUrl(){
 /* ════════════════════════════════
    SETTINGS INFO
 ════════════════════════════════ */
+function getShopInfo(){
+  const def={tel:'042-000-0000',bankName:'농협은행',account:'0000-0000-0000-0000',holder:'국가대표'};
+  try{return Object.assign({},def,JSON.parse(localStorage.getItem('sinsun_shop_info')||'{}'));}catch(e){return def;}
+}
+function saveShopInfo(){
+  const tel=document.getElementById('shopTel').value.trim();
+  const bankName=document.getElementById('shopBankName').value.trim();
+  const account=document.getElementById('shopAccount').value.trim();
+  const holder=document.getElementById('shopAccountHolder').value.trim();
+  if(!tel){toast('전화번호를 입력해 주세요.');return;}
+  if(!bankName){toast('은행명을 입력해 주세요.');return;}
+  if(!account){toast('계좌번호를 입력해 주세요.');return;}
+  if(!holder){toast('예금주를 입력해 주세요.');return;}
+  localStorage.setItem('sinsun_shop_info',JSON.stringify({tel,bankName,account,holder}));
+  // 주문서와 실시간 동기화 (storage 이벤트)
+  window.dispatchEvent(new StorageEvent('storage',{key:'sinsun_shop_info'}));
+  toast('✅ 가게 정보가 저장되었습니다. 주문서에 반영됩니다.');
+}
+function loadShopInfoToForm(){
+  const info=getShopInfo();
+  document.getElementById('shopTel').value=info.tel;
+  document.getElementById('shopBankName').value=info.bankName;
+  document.getElementById('shopAccount').value=info.account;
+  document.getElementById('shopAccountHolder').value=info.holder;
+}
 function updateDataInfo(){
   const o=getOrders(),p=getProducts();
   document.getElementById('dataInfoText').innerHTML=`저장된 주문 <strong>${o.length}건</strong>, 품목 <strong>${p.length}개</strong>`;
