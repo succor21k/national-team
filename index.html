@@ -38,6 +38,9 @@
     .account-row i{color:var(--orange);}
     .account-row span{font-size:.83em;color:#795548;font-weight:500;}
     .account-row strong{color:#5d4037;font-weight:800;}
+    .kakao-btn{display:inline-flex;align-items:center;gap:6px;background:#FEE500;color:#191919;border-radius:50px;padding:8px 22px;box-shadow:var(--shadow-sm);text-decoration:none;font-size:.83em;font-weight:700;margin-top:4px;transition:var(--transition);}
+    .kakao-btn:hover{background:#F4DC00;transform:translateY(-1px);}
+    .kakao-btn i{font-size:1.1em;}
     .tagline{font-size:.88em;color:var(--gray-500);margin-top:2px;}
 
     /* ── MAIN ── */
@@ -175,6 +178,9 @@
       <i class="fas fa-piggy-bank"></i>
       <span id="displayAccount">농협은행 &nbsp;<strong>0000-0000-0000-0000</strong>&nbsp; (예금주: 국가대표)</span>
     </div>
+    <a href="https://pf.kakao.com/_xxxxxx/chat" target="_blank" class="kakao-btn" id="kakaoLink" title="카카오톡 채널 아이디를 변경하여 사용하세요">
+      <i class="fas fa-comment"></i> 카카오톡 1:1 문의
+    </a>
   </div>
 
   <p class="tagline">농장 직배송 · 오늘 수확 · 내일 도착</p>
@@ -373,6 +379,14 @@
     if(e.key==='sinsun_products')buildProductList();
     if(e.key==='sinsun_shop_info')renderShopInfo();
   });
+
+  // QR 코드로 접속 시 (예: 주소 끝에 ?qr=true 추가 시) 관리자 페이지 버튼 숨기기
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('qr') || urlParams.get('source') === 'qr') {
+    const adminSec = document.querySelector('.admin-section');
+    if (adminSec) adminSec.style.display = 'none';
+  }
+
   renderShopInfo();
   buildProductList();
 </script>

@@ -726,8 +726,13 @@ function saveProduct(){
    QR CODE (순수 JS 구현 - qrcode-generator 라이브러리)
 ════════════════════════════════ */
 function initQrPage(){
-  // 현재 페이지 URL에서 admin.html → index.html 로 추론
-  const base=window.location.href.replace(/admin\.html.*$/,'index.html');
+  // 현재 페이지 URL에서 admin.html → index.html?qr=true 로 추론
+  let base=window.location.href.replace(/admin\.html.*$/,'index.html');
+  if (!base.includes('?')) {
+    base += '?qr=true';
+  } else if (!base.includes('qr=')) {
+    base += '&qr=true';
+  }
   document.getElementById('qrUrlInput').value=base;
 }
 
@@ -745,6 +750,9 @@ function loadQRLib(cb){
 function generateQR(){
   const url=document.getElementById('qrUrlInput').value.trim();
   if(!url){toast('URL을 입력해 주세요.');return;}
+  if(url.startsWith('file:///')) {
+    alert('⚠️ 주의: 현재 [내 컴퓨터의 파일 경로(file:///...)]로 QR 코드를 생성하고 있습니다.\n\n이 QR 코드를 스마트폰 카메라로 스캔하면 연결되지 않습니다. (스마트폰에는 해당 파일이 없기 때문입니다.)\n\n다른 사람의 폰에서 접속하게 하려면, 하단의 [🌐 웹에서 주문서 실행하기] 안내를 참고하여 먼저 인터넷 주소(https://...)를 만드셔야 합니다.');
+  }
   document.getElementById('qrUrlDisplay').textContent=url;
   loadQRLib(()=>{
     try{
