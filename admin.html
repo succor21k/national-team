@@ -2113,7 +2113,7 @@
     const firebaseConfig = {
       apiKey: "AIzaSyBBhhlEVXr6gCoepGK6dHhtHWi-AuQCfkw",
       authDomain: "national-team-88be2.firebaseapp.com",
-      databaseURL: "https://national-team-88be2-default-rtdb.firebaseio.com",
+      databaseURL: "https://national-team-88be2.firebaseio.com",
       projectId: "national-team-88be2",
       storageBucket: "national-team-88be2.firebasestorage.app",
       messagingSenderId: "884114714635",
@@ -2128,9 +2128,11 @@
         firebase.initializeApp(firebaseConfig);
         database = firebase.database();
         initFirebaseSync();
+        console.log("✅ Admin Firebase가 성공적으로 연결되었습니다.");
       }
     } catch (e) {
-      console.error("Firebase 초기화 실패:", e);
+      console.error("❌ Admin Firebase 초기화 실패:", e);
+      alert("Firebase 연결에 실패했습니다.");
     }
 
     // 실시간 알림음 재생 함수
@@ -2398,9 +2400,33 @@
       </div>
     </div>`).join('') + `<div class="add-product-card" onclick="openProductModal()"><div class="plus">+</div><span>새 품목 추가</span></div>`;
     }
-    function toggleProductActive(id) { const p = getProducts(), t = p.find(x => x.id === id); if (!t) return; t.active = t.active === false; saveProducts(p); renderProducts(); toast(`'${t.name}' 상태 변경.`); }
-    function confirmDeleteProduct(id) { const p = getProducts().find(x => x.id === id); if (!p) return; showConfirm(`'${p.name}'을 삭제하시겠습니까?`, '주문서에서도 삭제됩니다.', () => { saveProducts(getProducts().filter(x => x.id !== id)); renderProducts(); toast('품목 삭제 완료.') }); }
-    function resetProductsToDefault() { showConfirm('기본값으로 복원하시겠습니까?', '현재 품목이 초기화됩니다.', () => { saveProducts(JSON.parse(JSON.stringify(DEFAULT_PRODUCTS))); renderProducts(); toast('기본 품목으로 복원.') }); }
+    function toggleProductActive(id) { 
+      const p = getProducts(), t = p.find(x => x.id === id); 
+      if (!t) return; 
+      t.active = t.active === false; 
+      saveProducts(p); 
+      if (database) database.ref('products').set(p);
+      renderProducts(); 
+      toast(`'${t.name}' 상태 변경.`); 
+    }
+    function confirmDeleteProduct(id) { 
+      const p = getProducts().find(x => x.id === id); 
+      if (!p) return; 
+      showConfirm(`'${p.name}'을 삭제하시겠습니까?`, '주문서에서도 삭제됩니다.', () => { 
+        const newProds = getProducts().filter(x => x.id !== id);
+        saveProducts(newProds); 
+        if (database) database.ref('products').set(newProds);
+        renderProducts(); 
+        toast('품목 삭제 완료.');
+      }); 
+    }
+    function resetProductsToDefault() { showConfirm('기본값으로 복원하시겠습니까?', '현재 품목이 초기화됩니다.', () => { 
+      const prods = JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
+      saveProducts(prods); 
+      if (database) database.ref('products').set(prods);
+      renderProducts(); 
+      toast('기본 품목으로 복원.'); 
+    }); }
 
     /* Product Modal */
     const EMOJIS = ['🥬', '🥕', '🥦', '🧅', '🧄', '🥔', '🌽', '🍅', '🥑', '🍋', '🍎', '🍊', '🍇', '🍓', '🍑', '🍒', '🥭', '🍍', '🐟', '🐠', '🦑', '🦐', '🥚', '🥛', '🧀', '🥩', '🍗', '🧃', '🛒', '📦', '🌿', '🌾'];
@@ -2434,7 +2460,14 @@
       const prods = getProducts();
       if (editingId) { const i = prods.findIndex(p => p.id === editingId); if (i >= 0) prods[i] = { ...prods[i], name, price, unit, category: cat, emoji, bg, active }; }
       else prods.push({ id: 'p-' + Date.now(), name, price, unit, category: cat, emoji, bg, active });
-      saveProducts(prods); closeProductModal(); renderProducts(); toast(editingId ? '품목 수정 완료. ✏️' : '품목 추가 완료. ✅');
+      saveProducts(prods); 
+      
+      // Firebase Cloud 동기화 (상품 리스트)
+      if (database) {
+        database.ref('products').set(prods);
+      }
+      
+      closeProductModal(); renderProducts(); toast(editingId ? '품목 수정 완료. ✏️' : '품목 추가 완료. ✅');
     }
 
     /* ════════════════════════════════
@@ -2516,7 +2549,14 @@
       if (!account) { toast('계좌번호를 입력해 주세요.'); return; }
       if (!holder) { toast('예금주를 입력해 주세요.'); return; }
       localStorage.setItem('sinsun_shop_info', JSON.stringify({ tel, bankName, account, holder }));
-      // 주문서와 실시간 동기화 (storage 이벤트)
+      
+      const info = { tel, bankName, account, holder };
+      // Firebase Cloud 동기화 (가게 정보)
+      if (database) {
+        database.ref('shop_info').set(info);
+      }
+      
+      // 주문서와 실시간 동기화 (storage 이벤트 - 같은 브라우저용)
       window.dispatchEvent(new StorageEvent('storage', { key: 'sinsun_shop_info' }));
       toast('✅ 가게 정보가 저장되었습니다. 주문서에 반영됩니다.');
     }
