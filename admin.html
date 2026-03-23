@@ -2113,6 +2113,7 @@
     const firebaseConfig = {
       apiKey: "AIzaSyBBhhlEVXr6gCoepGK6dHhtHWi-AuQCfkw",
       authDomain: "national-team-88be2.firebaseapp.com",
+      databaseURL: "https://national-team-88be2-default-rtdb.firebaseio.com",
       projectId: "national-team-88be2",
       storageBucket: "national-team-88be2.firebasestorage.app",
       messagingSenderId: "884114714635",
@@ -2123,7 +2124,7 @@
     // Firebase 초기화
     let database = null;
     try {
-      if (firebaseConfig.apiKey !== "AIzaSyBBhhlEVXr6gCoepGK6dHhtHWi-AuQCfkw") {
+      if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
         firebase.initializeApp(firebaseConfig);
         database = firebase.database();
         initFirebaseSync();

@@ -1034,7 +1034,7 @@
     // Firebase 초기화
     let database = null;
     try {
-      if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+      if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
         firebase.initializeApp(firebaseConfig);
         database = firebase.database();
       }
