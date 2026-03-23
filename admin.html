@@ -504,7 +504,84 @@
 
 <div id="adminToast"></div>
 
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
 <script>
+  // ── FIREBASE CONFIGURATION ──
+  // TODO: Firebase 콘솔에서 발급받은 실제 설정값으로 교체해 주세요.
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  // Firebase 초기화
+  let database = null;
+  try {
+    if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+      firebase.initializeApp(firebaseConfig);
+      database = firebase.database();
+      initFirebaseSync();
+    }
+  } catch (e) {
+    console.error("Firebase 초기화 실패:", e);
+  }
+
+  // 실시간 알림음 재생 함수
+  function playNotificationSound() {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.1);
+      gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.5);
+    } catch(e) {
+      console.warn("오디오 재생 실패 (브라우저 정책상 첫 클릭 후 가능):", e);
+    }
+  }
+
+  // Firebase 실시간 동기화 설정
+  let isInitialLoad = true;
+  function initFirebaseSync() {
+    if (!database) return;
+    const ordersRef = database.ref('orders');
+    
+    // 데이터 변경 시 자동 갱신
+    ordersRef.on('value', snapshot => {
+      const data = snapshot.val();
+      const cloudOrders = data ? Object.values(data).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)) : [];
+      
+      // 로컬 스토리지 데이터와 병합 또는 교체
+      localStorage.setItem('sinsun_orders', JSON.stringify(cloudOrders));
+      
+      if (document.getElementById('adminApp').style.display !== 'none') {
+        renderAll();
+      }
+      
+      // 초기 로드 이후 새로운 데이터가 들어오면 소리 재생
+      if (!isInitialLoad && cloudOrders.length > JSON.parse(localStorage.getItem('prev_order_count') || '0')) {
+        playNotificationSound();
+        toast("🔔 새로운 주문이 도착했습니다!");
+      }
+      localStorage.setItem('prev_order_count', cloudOrders.length);
+      isInitialLoad = false;
+    });
+  }
+
+
 /* ════════════════════════════════
    AUTH
 ════════════════════════════════ */
@@ -638,9 +715,47 @@ function renderOrders(){
 }
 function sIcon(s){return{주문접수:'📋',준비중:'📦',배송중:'🚚',배송완료:'✅',취소:'❌'}[s]||'';}
 function toggleRow(id){document.getElementById('row-'+id)?.classList.toggle('expanded');}
-function quickStatus(e,id,status){e.stopPropagation();const o=getOrders();const i=o.findIndex(x=>x.id===id);if(i<0)return;o[i].status=status;saveOrders(o);renderAll();toast(`'${status}'로 변경했습니다.`);}
-function confirmDeleteOrder(e,id){e.stopPropagation();showConfirm('주문을 삭제하시겠습니까?','이 작업은 되돌릴 수 없습니다.',()=>{saveOrders(getOrders().filter(o=>o.id!==id));renderAll();toast('삭제되었습니다.');});}
-function confirmClearOrders(){const n=getOrders().length;if(!n){toast('삭제할 주문이 없습니다.');return;}showConfirm('전체 주문을 삭제하시겠습니까?',`총 ${n}건이 삭제됩니다.`,()=>{localStorage.removeItem('sinsun_orders');renderAll();toast('전체 삭제 완료.');});}
+function quickStatus(e,id,status){
+  e.stopPropagation();
+  const o=getOrders();
+  const i=o.findIndex(x=>x.id===id);
+  if(i<0)return;
+  o[i].status=status;
+  saveOrders(o);
+  
+  if (database) {
+    database.ref('orders/' + id).update({ status: status });
+  }
+  
+  renderAll();
+  toast(`'${status}'로 변경했습니다.`);
+}
+
+function confirmDeleteOrder(e,id){
+  e.stopPropagation();
+  showConfirm('주문을 삭제하시겠습니까?','이 작업은 되돌릴 수 없습니다.',()=>{
+    saveOrders(getOrders().filter(o=>o.id!==id));
+    if (database) {
+      database.ref('orders/' + id).remove();
+    }
+    renderAll();
+    toast('삭제되었습니다.');
+  });
+}
+
+function confirmClearOrders(){
+  const n=getOrders().length;
+  if(!n){toast('삭제할 주문이 없습니다.');return;}
+  showConfirm('전체 주문을 삭제하시겠습니까?',`총 ${n}건이 삭제됩니다.`,()=>{
+    localStorage.removeItem('sinsun_orders');
+    if (database) {
+      database.ref('orders').remove();
+    }
+    renderAll();
+    toast('전체 삭제 완료.');
+  });
+}
+
 
 function renderProductBars(orders){
   const prods=getProducts();const qty={};prods.forEach(p=>qty[p.id]=0);
@@ -832,8 +947,8 @@ function toast(msg){const el=document.getElementById('adminToast');el.textConten
 /* ════════════════════════════════
    LIVE SYNC
 ════════════════════════════════ */
-window.addEventListener('storage',e=>{if(e.key==='sinsun_orders')renderAll();});
-setInterval(()=>{if(document.getElementById('adminApp').style.display!=='none')renderAll();},4000);
+// window.addEventListener('storage',e=>{if(e.key==='sinsun_orders')renderAll();});
+// setInterval(()=>{if(document.getElementById('adminApp').style.display!=='none')renderAll();},4000);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeProductModal();closeConfirm();}});
 </script>
 </body>

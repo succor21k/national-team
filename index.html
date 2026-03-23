@@ -263,7 +263,35 @@
   </div>
 </div>
 
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
 <script>
+  // ── FIREBASE CONFIGURATION ──
+  // TODO: Firebase 콘솔에서 발급받은 실제 설정값으로 교체해 주세요.
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  // Firebase 초기화
+  let database = null;
+  try {
+    if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+      firebase.initializeApp(firebaseConfig);
+      database = firebase.database();
+    }
+  } catch (e) {
+    console.error("Firebase 초기화 실패:", e);
+  }
+
+
   function getShopInfo(){
     const def={tel:'042-000-0000',bankName:'농협은행',account:'0000-0000-0000-0000',holder:'국가대표'};
     try{return Object.assign({},def,JSON.parse(localStorage.getItem('sinsun_shop_info')||'{}'));}catch(e){return def;}
@@ -352,7 +380,17 @@
     const items=[];
     Object.keys(PRODUCTS).forEach(id=>{const e=document.getElementById('qty-'+id);if(!e)return;const q=parseInt(e.value)||0;if(q>0)items.push({id,name:PRODUCTS[id].name,qty:q,price:PRODUCTS[id].price,unit:PRODUCTS[id].unit,subtotal:q*PRODUCTS[id].price});});
     const order={id:'ORD-'+Date.now(),timestamp:new Date().toISOString(),name:document.getElementById('userName').value.trim(),tel:document.getElementById('userTel').value.trim(),addr:document.getElementById('userAddr').value.trim(),memo:document.getElementById('orderMemo').value.trim(),items,total,status:'주문접수'};
+    
+    // 1. LocalStorage 저장 (백업용)
     const orders=JSON.parse(localStorage.getItem('sinsun_orders')||'[]');orders.unshift(order);localStorage.setItem('sinsun_orders',JSON.stringify(orders));
+    
+    // 2. Firebase Cloud 저장 (실시간 동기화)
+    if (database) {
+      database.ref('orders/' + order.id).set(order)
+        .then(() => console.log("Cloud sync success"))
+        .catch(err => console.error("Cloud sync error:", err));
+    }
+
     buildModal(total);document.getElementById('modalOverlay').classList.add('show');document.body.style.overflow='hidden';
   }
   function buildModal(total){
