@@ -1047,7 +1047,7 @@
 
   <script>
     // ── FIREBASE CONFIGURATION ──
-    // TODO: Firebase 콘솔에서 발급받은 실제 설정값으로 교체해 주세요.
+    // [중요] 아래 firebaseConfig 전체를 본인의 Firebase 콘솔에서 복사한 값으로 교체하세요!
     const firebaseConfig = {
       apiKey: "AIzaSyBBhhlEVXr6gCoepGK6dHhtHWi-AuQCfkw",
       authDomain: "national-team-88be2.firebaseapp.com",
@@ -1062,49 +1062,47 @@
     // Firebase 초기화
     let database = null;
     try {
-      if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
-        firebase.initializeApp(firebaseConfig);
-        database = firebase.database();
-        console.log("✅ Firebase가 성공적으로 연결되었습니다.");
-
-        // ── 실시간 연결 상태 감시 ──
-        database.ref('.info/connected').on('value', snapshot => {
-          const statusDot = document.getElementById('connStatusDot');
-          const statusText = document.getElementById('connStatusText');
-          if (snapshot.val() === true) {
-            statusDot.style.background = 'var(--green)';
-            statusText.textContent = '실시간 연결됨';
-            statusText.style.color = 'var(--green-dark)';
-          } else {
-            statusDot.style.background = 'var(--red)';
-            statusText.textContent = '오프라인 (데이터 저장만 가능)';
-            statusText.style.color = 'var(--red)';
-          }
-        });
-
-        // ── 실시간 데이터 감시 (가게 정보 & 상품 리스트) ──
-
-        // 1. 가게 정보 동기화
-        database.ref('shop_info').on('value', snapshot => {
-          const info = snapshot.val();
-          if (info) {
-            localStorage.setItem('sinsun_shop_info', JSON.stringify(info));
-            renderShopInfo();
-          }
-        });
-
-        // 2. 상품 리스트 동기화
-        database.ref('products').on('value', snapshot => {
-          const prods = snapshot.val();
-          if (prods) {
-            localStorage.setItem('sinsun_products', JSON.stringify(prods));
-            buildProductList();
-          }
-        });
+      if (typeof firebase === 'undefined') {
+        throw new Error("Firebase 라이브러리가 로드되지 않았습니다. 인터넷 연결을 확인하거나 스크립트 경로가 올바른지 확인해 주세요.");
       }
+      firebase.initializeApp(firebaseConfig);
+      database = firebase.database();
+      console.log("✅ Firebase가 성공적으로 연결되었습니다.");
+
+      // ── 실시간 연결 상태 감시 ──
+      database.ref('.info/connected').on('value', snapshot => {
+        const statusDot = document.getElementById('connStatusDot');
+        const statusText = document.getElementById('connStatusText');
+        if (snapshot.val() === true) {
+          statusDot.style.background = 'var(--green)';
+          statusText.textContent = '실시간 연결됨';
+          statusText.style.color = 'var(--green-dark)';
+        } else {
+          statusDot.style.background = 'var(--red)';
+          statusText.textContent = '오프라인 (데이터 저장만 가능)';
+          statusText.style.color = 'var(--red)';
+        }
+      });
+
+      // ── 실시간 데이터 감시 (가게 정보 & 상품 리스트) ──
+      database.ref('shop_info').on('value', snapshot => {
+        const info = snapshot.val();
+        if (info) {
+          localStorage.setItem('sinsun_shop_info', JSON.stringify(info));
+          renderShopInfo();
+        }
+      });
+
+      database.ref('products').on('value', snapshot => {
+        const prods = snapshot.val();
+        if (prods) {
+          localStorage.setItem('sinsun_products', JSON.stringify(prods));
+          buildProductList();
+        }
+      });
     } catch (e) {
       console.error("❌ Firebase 초기화 실패:", e);
-      alert("Firebase 연결에 실패했습니다. 설정을 확인해 주세요.");
+      alert("Firebase 연결에 실패했습니다.\n\n[오류 원인]\n" + e.message + "\n\nFirebase 콘솔의 설정을 다시 확인해 주세요.");
     }
 
 

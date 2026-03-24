@@ -2109,7 +2109,7 @@
 
   <script>
     // ── FIREBASE CONFIGURATION ──
-    // TODO: Firebase 콘솔에서 발급받은 실제 설정값으로 교체해 주세요.
+    // [중요] 아래 firebaseConfig 전체를 본인의 Firebase 콘솔에서 복사한 값으로 교체하세요!
     const firebaseConfig = {
       apiKey: "AIzaSyBBhhlEVXr6gCoepGK6dHhtHWi-AuQCfkw",
       authDomain: "national-team-88be2.firebaseapp.com",
@@ -2124,15 +2124,16 @@
     // Firebase 초기화
     let database = null;
     try {
-      if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
-        firebase.initializeApp(firebaseConfig);
-        database = firebase.database();
-        initFirebaseSync();
-        console.log("✅ Admin Firebase가 성공적으로 연결되었습니다.");
+      if (typeof firebase === 'undefined') {
+        throw new Error("Firebase 라이브러리가 로드되지 않았습니다.");
       }
+      firebase.initializeApp(firebaseConfig);
+      database = firebase.database();
+      initFirebaseSync();
+      console.log("✅ Admin Firebase가 성공적으로 연결되었습니다.");
     } catch (e) {
       console.error("❌ Admin Firebase 초기화 실패:", e);
-      alert("Firebase 연결에 실패했습니다.");
+      alert("Firebase 연결에 실패했습니다.\n\n[오류 원인]\n" + e.message);
     }
 
     // 실시간 알림음 재생 함수
