@@ -1114,6 +1114,15 @@
       const info = getShopInfo();
       document.getElementById('displayTel').textContent = info.tel;
       document.getElementById('displayAccount').innerHTML = `${info.bankName} &nbsp;<strong>${info.account}</strong>&nbsp; (예금주: ${info.holder})`;
+      
+      const kakaoLink = document.getElementById('kakaoLink');
+      if (info.kakaoId) {
+        kakaoLink.href = `https://pf.kakao.com/${info.kakaoId}/chat`;
+        kakaoLink.style.display = 'inline-flex';
+      } else {
+        // ID가 없으면 기본 안내 혹은 숨김 처리 (여기서는 기본값 유지나 안내를 위해 유지할 수도 있지만 사용성 상 숨기는 것이 깔끔함)
+        kakaoLink.href = "javascript:alert('카카오톡 상담 채널이 설정되지 않았습니다. 관리자 페이지에서 설정해 주세요.')";
+      }
     }
 
     const DEFAULT_PRODUCTS = [

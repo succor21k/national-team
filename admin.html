@@ -2034,6 +2034,16 @@
                     style="padding-right:14px" />
                 </div>
               </div>
+              <div class="pw-field">
+                <label>카카오톡 채널 ID</label>
+                <div class="pw-input-wrap">
+                  <input class="pw-input" type="text" id="shopKakaoId" placeholder="예: _xxxxxx"
+                    style="padding-right:14px" />
+                </div>
+                <div style="font-size:0.75em; color:var(--text3); margin-top:2px;">
+                  * pf.kakao.com/<strong>채널ID</strong> 에서 ID 부분만 입력하세요.
+                </div>
+              </div>
               <button class="pw-save-btn" onclick="saveShopInfo()"><i class="fas fa-check"></i> 저장하기</button>
               <div
                 style="margin-top:8px;padding:10px 12px;background:var(--bg3);border-radius:8px;font-size:.78em;color:var(--text3);">
@@ -2571,13 +2581,14 @@
       const bankName = document.getElementById('shopBankName').value.trim();
       const account = document.getElementById('shopAccount').value.trim();
       const holder = document.getElementById('shopAccountHolder').value.trim();
+      const kakaoId = document.getElementById('shopKakaoId').value.trim();
       if (!tel) { toast('전화번호를 입력해 주세요.'); return; }
       if (!bankName) { toast('은행명을 입력해 주세요.'); return; }
       if (!account) { toast('계좌번호를 입력해 주세요.'); return; }
       if (!holder) { toast('예금주를 입력해 주세요.'); return; }
-      localStorage.setItem('sinsun_shop_info', JSON.stringify({ tel, bankName, account, holder }));
+      localStorage.setItem('sinsun_shop_info', JSON.stringify({ tel, bankName, account, holder, kakaoId }));
 
-      const info = { tel, bankName, account, holder };
+      const info = { tel, bankName, account, holder, kakaoId };
       // Firebase Cloud 동기화 (가게 정보)
       if (database) {
         database.ref('shop_info').set(info);
@@ -2593,6 +2604,7 @@
       document.getElementById('shopBankName').value = info.bankName;
       document.getElementById('shopAccount').value = info.account;
       document.getElementById('shopAccountHolder').value = info.holder;
+      document.getElementById('shopKakaoId').value = info.kakaoId || '';
     }
     function updateDataInfo() {
       const o = getOrders(), p = getProducts();
