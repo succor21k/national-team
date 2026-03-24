@@ -2197,10 +2197,8 @@
         }
         localStorage.setItem('prev_order_count', cloudOrders.length);
         isInitialLoad = false;
-      });
-
-      // 데이터 로드 실패 감시
-      ordersRef.on('error', err => {
+      }, err => {
+        // 데이터 로드 실패 감시
         console.error("Firebase Read Error:", err);
         if (err.code === 'PERMISSION_DENIED') {
           toast("❌ Firebase 권한 오류: 규칙을 확인해 주세요.");
