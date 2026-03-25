@@ -9,6 +9,8 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     *,
     *::before,
@@ -791,6 +793,136 @@
 
     .detail-item-val {
       font-weight: 600;
+    }
+
+    /* ═══ DELIVERY DASHBOARD ═══ */
+    #page-delivery .container {
+      max-width: 100%;
+      padding: 0;
+      height: calc(100vh - 60px);
+      display: flex;
+    }
+
+    .delivery-sidebar {
+      width: 360px;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+    }
+
+    .delivery-map-container {
+      flex: 1;
+      position: relative;
+      background: #1a1a1a;
+    }
+
+    #deliveryMap {
+      width: 100%;
+      height: 100%;
+    }
+
+    .sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .delivery-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .delivery-item {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .delivery-item:hover {
+      border-color: var(--blue);
+      transform: translateY(-2px);
+    }
+
+    .delivery-item.active {
+      border-color: var(--blue);
+      box-shadow: 0 0 10px rgba(88, 166, 255, 0.2);
+    }
+
+    .d-item-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .d-item-name {
+      font-weight: 700;
+      font-size: 0.9em;
+    }
+
+    .d-item-status {
+      font-size: 0.7em;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .d-item-addr {
+      font-size: 0.8em;
+      color: var(--text2);
+      margin-bottom: 8px;
+    }
+
+    .d-item-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .d-btn {
+      flex: 1;
+      padding: 6px;
+      font-size: 0.75em;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      color: var(--text);
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .d-btn:hover {
+      background: var(--bg);
+    }
+
+    .d-btn.primary {
+      background: var(--blue-dim);
+      color: var(--blue);
+      border-color: var(--blue);
+    }
+
+    @media (max-width: 900px) {
+      #page-delivery .container {
+        flex-direction: column;
+      }
+      .delivery-sidebar {
+        width: 100%;
+        height: 40%;
+        order: 2;
+        border-right: none;
+        border-top: 1px solid var(--border);
+      }
+      .delivery-map-container {
+        height: 60%;
+        order: 1;
+      }
     }
 
     .detail-info-row {
@@ -1834,6 +1966,7 @@
       </div>
       <div class="topbar-tabs">
         <button class="tab-btn active" onclick="switchTab('orders',this)"><i class="fas fa-list-ul"></i> 주문</button>
+        <button class="tab-btn" onclick="switchTab('delivery',this)"><i class="fas fa-truck-fast"></i> 배송</button>
         <button class="tab-btn" onclick="switchTab('products',this)"><i class="fas fa-boxes-stacked"></i> 품목</button>
         <button class="tab-btn" onclick="switchTab('qr',this)"><i class="fas fa-qrcode"></i> QR코드</button>
         <button class="tab-btn" onclick="switchTab('settings',this)"><i class="fas fa-gear"></i> 설정</button>
@@ -1883,6 +2016,8 @@
             <div class="panel-actions">
               <div class="filter-tabs">
                 <button class="filter-tab active" onclick="setFilter('전체',this)">전체</button>
+                <button class="filter-tab" onclick="setFilter('배달',this)">배달만</button>
+                <button class="filter-tab" onclick="setFilter('픽업',this)">픽업만</button>
                 <button class="filter-tab" onclick="setFilter('주문접수',this)">주문접수</button>
                 <button class="filter-tab" onclick="setFilter('준비중',this)">준비중</button>
                 <button class="filter-tab" onclick="setFilter('배송중',this)">배송중</button>
@@ -1907,6 +2042,34 @@
             </div>
             <div class="product-bar-list" id="statusBars"></div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 배송 대시보드 -->
+    <div id="page-delivery" class="page">
+      <div class="container" style="max-width:100%; padding:0; height:calc(100vh - 60px); display:flex;">
+        <div class="delivery-sidebar">
+          <div class="sidebar-header">
+            <h3>🚚 배송 현황</h3>
+            <span class="count-badge" id="deliveryCountBadge">0건</span>
+          </div>
+          <div class="search-box">
+            <i class="fas fa-magnifying-glass"></i>
+            <input class="search-input" type="text" id="deliverySearch" placeholder="주소, 이름 검색..." oninput="renderDeliveryList()">
+          </div>
+          <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px;">
+            <button onclick="openRouteOptimizerGoogle()" class="d-btn primary" style="flex:1;padding:10px;font-size:0.8em;">
+              <i class="fab fa-google"></i> 구글 최적 경로
+            </button>
+            <button onclick="openRouteOptimizerNaver()" class="d-btn" style="flex:1;padding:10px;font-size:0.8em;background:var(--green-dim);color:var(--green);border-color:var(--green);">
+              🗺 네이버 경로
+            </button>
+          </div>
+          <div class="delivery-list" id="deliveryList"></div>
+        </div>
+        <div class="delivery-map-container" style="flex:1; position:relative; background:#1a1a1a;">
+          <div id="deliveryMap" style="width:100%; height:100%;"></div>
         </div>
       </div>
     </div>
@@ -2034,16 +2197,23 @@
                     style="padding-right:14px" />
                 </div>
               </div>
-              <div class="pw-field">
-                <label>카카오톡 채널 ID</label>
-                <div class="pw-input-wrap">
-                  <input class="pw-input" type="text" id="shopKakaoId" placeholder="예: _xxxxxx"
-                    style="padding-right:14px" />
+                <div class="pw-field">
+                  <label>카카오톡 연결 (채널ID 또는 전체URL)</label>
+                  <div class="pw-input-wrap">
+                    <input class="pw-input" type="text" id="shopKakaoId" placeholder="예: _xxxxxx 또는 오픈채팅 주소"
+                      style="padding-right:14px" />
+                  </div>
+                  <div style="font-size:0.75em; color:var(--text3); margin-top:2px;">
+                    * 채널 ID(예: _abc123) 또는 오픈채팅 전체 주소를 입력하세요.
+                  </div>
                 </div>
-                <div style="font-size:0.75em; color:var(--text3); margin-top:2px;">
-                  * pf.kakao.com/<strong>채널ID</strong> 에서 ID 부분만 입력하세요.
+                <div class="pw-field">
+                  <label>매장 주소 (오시는 길)</label>
+                  <div class="pw-input-wrap">
+                    <input class="pw-input" type="text" id="shopAddr" placeholder="예: 대전광역시 유성구 ..."
+                      style="padding-right:14px" />
+                  </div>
                 </div>
-              </div>
               <button class="pw-save-btn" onclick="saveShopInfo()"><i class="fas fa-check"></i> 저장하기</button>
               <div
                 style="margin-top:8px;padding:10px 12px;background:var(--bg3);border-radius:8px;font-size:.78em;color:var(--text3);">
@@ -2279,7 +2449,168 @@
       btn.classList.add('active');
       if (name === 'products') renderProducts();
       if (name === 'orders') renderAll();
+      if (name === 'delivery') { initDeliveryMap(); renderDeliveryList(); }
       if (name === 'settings') { updateDataInfo(); loadShopInfoToForm(); }
+    }
+
+    /* ════════════════════════════════
+       DELIVERY DASHBOARD (Leaflet)
+    ════════════════════════════════ */
+    const STORE_ADDR = '대전 유성구 봉명동 466-4 2층';
+
+    function openRouteOptimizerGoogle() {
+      const orders = getOrders().filter(o => o.type !== 'pickup' && o.status !== '취소' && o.status !== '배송완료' && o.addr);
+      if (!orders.length) { toast('배송할 주문이 없습니다.'); return; }
+      // 구글 지도 다중 경유지 URL (주소 텍스트 그대로 사용 가능)
+      const stops = orders.map(o => encodeURIComponent(o.addr)).join('/');
+      const url = `https://www.google.com/maps/dir/${encodeURIComponent(STORE_ADDR)}/${stops}`;
+      window.open(url, '_blank');
+      toast(`🗺 구글 지도에서 최적 경로를 확인하세요!`);
+    }
+
+    function openRouteOptimizerNaver() {
+      const orders = getOrders().filter(o => o.type !== 'pickup' && o.status !== '취소' && o.status !== '배송완료' && o.addr);
+      if (!orders.length) { toast('배송할 주문이 없습니다.'); return; }
+      // 네이버 지도는 2개 경유지 지원 (첫 번째 목적지만 열기)
+      const firstAddr = encodeURIComponent(orders[0].addr);
+      const url = `https://map.naver.com/v5/directions/-/${firstAddr},,덜지없음/car`;
+      window.open(url, '_blank');
+      if (orders.length > 1) toast(`⚠️ 네이버는 다중 경유지가 어려울 수 있어요. 구글 다중 경유지를 추청합니다.`);
+    }
+
+    let dMap = null, dMarkers = [];
+    function initDeliveryMap() {
+      if (dMap) { setTimeout(() => dMap.invalidateSize(), 100); return; }
+      // 대전 유성구 봉명동 466-4 (실제 매장 위치)
+      const center = [36.3577, 127.3439];
+      dMap = L.map('deliveryMap').setView(center, 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+      }).addTo(dMap);
+      
+      // 매장 위치 마커
+      L.marker(center, {
+        icon: L.divIcon({
+          html: '<div style="background:var(--green);width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 0 10px var(--green);"></div>',
+          className: '', iconSize: [12, 12]
+        })
+      }).addTo(dMap).bindPopup('<b>국가대표 신선마켓</b><br>대전 유성구 봉명동 466-4 2층');
+      
+      updateMapMarkers();
+    }
+
+    function renderDeliveryList() {
+      const orders = getOrders(), search = document.getElementById('deliverySearch').value.toLowerCase();
+      // type이 없는 기존 주문도 배달 목록에 표시 (pickup이 아니면 배달로 간주)
+      const deliveryOrders = orders.filter(o => o.type !== 'pickup' && o.status !== '취소');
+      const filtered = deliveryOrders.filter(o => (o.name + (o.addr || '')).toLowerCase().includes(search));
+      
+      document.getElementById('deliveryCountBadge').textContent = filtered.length + '건';
+      const list = document.getElementById('deliveryList');
+      
+      if (!filtered.length) {
+        list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3);font-size:0.8em;">배송 주문이 없습니다.</div>';
+        return;
+      }
+      
+      list.innerHTML = filtered.map(o => `
+        <div class="delivery-item" id="d-item-${o.id}" onclick="focusOrder('${o.id}')">
+          <div class="d-item-header">
+            <span class="d-item-name">${o.name} 님</span>
+            <span class="status-badge ${o.status}" style="font-size:0.6em;padding:1px 6px;">${o.status}</span>
+          </div>
+          <div class="d-item-addr">${o.addr}</div>
+          <div class="d-item-actions">
+            <a href="https://map.kakao.com/link/search/${encodeURIComponent(o.addr || '')}" target="_blank" class="d-btn primary"><i class="fas fa-location-arrow"></i> 길찾기</a>
+            <button class="d-btn" onclick="event.stopPropagation();quickStatus(event,'${o.id}','배송중')">🚚 배송중</button>
+            <button class="d-btn" style="background:var(--green-dim);color:var(--green);border-color:var(--green);" onclick="event.stopPropagation();quickStatus(event,'${o.id}','배송완료')">✅ 완료</button>
+          </div>
+        </div>
+      `).join('');
+      
+      updateMapMarkers();
+    }
+
+    let dRoute = null; // 경로 선(polyline)
+
+    function updateMapMarkers() {
+      if (!dMap) return;
+      // 기존 마커와 경로 제거
+      dMarkers.forEach(m => dMap.removeLayer(m));
+      dMarkers = [];
+      if (dRoute) { dMap.removeLayer(dRoute); dRoute = null; }
+
+      const STORE_LAT = 36.3577, STORE_LNG = 127.3439;
+      const orders = getOrders().filter(o => o.type !== 'pickup' && o.status !== '취소');
+
+      // 각 주문에 랜덤 좌표 부여 (실제 서비스에서는 Geocoding API 사용)
+      orders.forEach(o => {
+        if (!o._lat) {
+          o._lat = STORE_LAT + (Math.random() - 0.5) * 0.06;
+          o._lng = STORE_LNG + (Math.random() - 0.5) * 0.06;
+        }
+      });
+
+      if (!orders.length) return;
+
+      // ── 경로 좌표 배열 (매장 → 배송지1 → 배송지2 → ...)
+      const routePoints = [[STORE_LAT, STORE_LNG], ...orders.map(o => [o._lat, o._lng])];
+
+      // ── 점선 경로 표시 (파란 점선)
+      dRoute = L.polyline(routePoints, {
+        color: '#58a6ff',
+        weight: 3,
+        opacity: 0.8,
+        dashArray: '8, 6'
+      }).addTo(dMap);
+
+      // ── 번호 마커 생성
+      orders.forEach((o, idx) => {
+        const statusColor = o.status === '배송완료' ? '#3fb950' : o.status === '배송중' ? '#bc8cff' : '#58a6ff';
+        const marker = L.marker([o._lat, o._lng], {
+          icon: L.divIcon({
+            html: `<div style="
+              background:${statusColor};
+              color:white;
+              width:28px;height:28px;
+              border-radius:50%;
+              display:flex;align-items:center;justify-content:center;
+              font-size:12px;font-weight:800;
+              border:2px solid white;
+              box-shadow:0 2px 8px rgba(0,0,0,0.4);
+            ">${idx + 1}</div>`,
+            className: '',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+          })
+        }).addTo(dMap);
+
+        marker.bindPopup(`
+          <div style="min-width:160px;">
+            <b>📦 ${idx + 1}번째 배송</b><br>
+            <b>${o.name} 님</b><br>
+            <small>${o.addr}</small><br>
+            <span style="color:${statusColor};font-weight:700;">${o.status}</span>
+          </div>
+        `);
+        dMarkers.push(marker);
+        o._marker = marker;
+      });
+
+      // ── 지도 범위를 모든 마커에 맞게 자동 조정
+      dMap.fitBounds(dRoute.getBounds(), { padding: [40, 40] });
+    }
+
+    function focusOrder(id) {
+      const orders = getOrders();
+      const o = orders.find(x => x.id === id);
+      if (o && o._lat && dMap) {
+        dMap.setView([o._lat, o._lng], 15);
+        if (o._marker) o._marker.openPopup();
+        document.querySelectorAll('.delivery-item').forEach(el => el.classList.remove('active'));
+        document.getElementById('d-item-' + id)?.classList.add('active');
+      }
     }
 
     /* ════════════════════════════════
@@ -2301,7 +2632,17 @@
        ORDERS
     ════════════════════════════════ */
     let currentFilter = '전체';
-    function renderAll() { const o = getOrders(); renderStats(o); renderOrders(); renderProductBars(o); renderStatusBars(o); }
+    function renderAll() {
+      const o = getOrders();
+      renderStats(o);
+      renderOrders();
+      renderProductBars(o);
+      renderStatusBars(o);
+      // 배송 탭이 열려 있으면 배송 목록도 갱신
+      if (document.getElementById('page-delivery')?.classList.contains('active')) {
+        renderDeliveryList();
+      }
+    }
     function renderStats(o) {
       document.getElementById('stat-total').textContent = o.length.toLocaleString();
       document.getElementById('stat-revenue').textContent = o.filter(x => x.status !== '취소').reduce((s, x) => s + x.total, 0).toLocaleString();
@@ -2311,7 +2652,13 @@
     function setFilter(f, el) { currentFilter = f; document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active')); el.classList.add('active'); renderOrders(); }
     function renderOrders() {
       const orders = getOrders(), search = document.getElementById('searchInput').value.toLowerCase().trim();
-      const filtered = orders.filter(o => { if (currentFilter !== '전체' && o.status !== currentFilter) return false; if (search && !(o.name + o.tel + o.addr + o.id).toLowerCase().includes(search)) return false; return true; });
+      const filtered = orders.filter(o => {
+        if (currentFilter === '배달') return o.type === 'delivery';
+        if (currentFilter === '픽업') return o.type === 'pickup';
+        if (currentFilter !== '전체' && o.status !== currentFilter) return false;
+        if (search && !(o.name + o.tel + (o.addr || '') + o.id).toLowerCase().includes(search)) return false;
+        return true;
+      });
       document.getElementById('orderCountBadge').textContent = filtered.length + '건';
       const wrap = document.getElementById('ordersWrap');
       if (!filtered.length) { wrap.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>${search ? '검색 결과가 없습니다.' : '아직 주문이 없습니다.'}</p></div>`; return; }
@@ -2321,7 +2668,14 @@
         return `<div class="order-row" id="row-${o.id}" onclick="toggleRow('${o.id}')">
       <div class="order-summary-row">
         <div class="order-num">#${o.id.slice(-4)}</div>
-        <div><div class="order-customer-name">${o.name} 님</div><div class="order-customer-tel">${o.tel}</div><div class="order-items-preview">${prev}</div></div>
+        <div>
+          <div class="order-customer-name">
+            ${o.type === 'pickup' ? '<span style="color:var(--orange);margin-right:4px;">[픽업]</span>' : '<span style="color:var(--blue);margin-right:4px;">[배송]</span>'}
+            ${o.name} 님
+          </div>
+          <div class="order-customer-tel">${o.tel}</div>
+          <div class="order-items-preview">${prev}</div>
+        </div>
         <div class="col-status"><span class="status-badge ${o.status}">${sIcon(o.status)} ${o.status}</span></div>
         <div class="col-date">${ds}</div>
         <div class="col-total">${o.total.toLocaleString()}원</div>
@@ -2330,10 +2684,10 @@
       <div class="order-detail">
         <div class="detail-grid">
           <div class="detail-section"><div class="detail-section-title">📦 주문 상품</div>${o.items.map(i => `<div class="detail-item"><span class="detail-item-name">${i.name} × ${i.qty}${i.unit}</span><span class="detail-item-val">${i.subtotal.toLocaleString()}원</span></div>`).join('')}</div>
-          <div class="detail-section"><div class="detail-section-title">🚚 배송 정보</div>
+          <div class="detail-section"><div class="detail-section-title">${o.type === 'pickup' ? '🏪 픽업 정보' : '🚚 배송 정보'}</div>
             <div class="detail-info-row"><i class="fas fa-user"></i><span>${o.name}</span></div>
             <div class="detail-info-row"><i class="fas fa-phone"></i><span>${o.tel}</span></div>
-            <div class="detail-info-row"><i class="fas fa-location-dot"></i><span>${o.addr}</span></div>
+            ${o.type !== 'pickup' ? `<div class="detail-info-row"><i class="fas fa-location-dot"></i><span>${o.addr}</span></div>` : ''}
             ${o.memo ? `<div class="detail-info-row"><i class="fas fa-note-sticky"></i><span>${o.memo}</span></div>` : ''}
             <div class="detail-info-row"><i class="fas fa-clock"></i><span>${new Date(o.timestamp).toLocaleString('ko-KR')}</span></div>
           </div>
