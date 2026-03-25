@@ -606,6 +606,38 @@
       background: rgba(255, 255, 255, .02);
     }
 
+    .order-row.type-delivery {
+      border-left: 4px solid var(--blue);
+    }
+
+    .order-row.type-pickup {
+      border-left: 4px solid var(--orange);
+    }
+
+    .type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.7em;
+      font-weight: 800;
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+
+    .type-badge.delivery {
+      background: var(--blue-dim);
+      color: var(--blue);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+    }
+
+    .type-badge.pickup {
+      background: var(--orange-dim);
+      color: var(--orange);
+      border: 1px solid rgba(210, 153, 34, 0.3);
+    }
+
     .order-row.expanded {
       background: rgba(88, 166, 255, .03);
     }
@@ -2502,33 +2534,52 @@
 
     function renderDeliveryList() {
       const orders = getOrders(), search = document.getElementById('deliverySearch').value.toLowerCase();
-      // type이 없는 기존 주문도 배달 목록에 표시 (pickup이 아니면 배달로 간주)
-      const deliveryOrders = orders.filter(o => o.type !== 'pickup' && o.status !== '취소');
-      const filtered = deliveryOrders.filter(o => (o.name + (o.addr || '')).toLowerCase().includes(search));
-      
+      // 취소 주문 제외, 배달+픽업 모두 표시
+      const allOrders = orders.filter(o => o.status !== '취소');
+      const filtered = allOrders.filter(o => (o.name + (o.addr || '') + (o.tel || '')).toLowerCase().includes(search));
+
       document.getElementById('deliveryCountBadge').textContent = filtered.length + '건';
       const list = document.getElementById('deliveryList');
-      
+
       if (!filtered.length) {
-        list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3);font-size:0.8em;">배송 주문이 없습니다.</div>';
+        list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3);font-size:0.8em;">주문이 없습니다.</div>';
         return;
       }
-      
-      list.innerHTML = filtered.map(o => `
-        <div class="delivery-item" id="d-item-${o.id}" onclick="focusOrder('${o.id}')">
-          <div class="d-item-header">
-            <span class="d-item-name">${o.name} 님</span>
-            <span class="status-badge ${o.status}" style="font-size:0.6em;padding:1px 6px;">${o.status}</span>
+
+      list.innerHTML = filtered.map(o => {
+        const isPickup = o.type === 'pickup';
+        const typeTag = isPickup
+          ? `<span style="background:var(--orange-dim);color:var(--orange);border:1px solid rgba(210,153,34,.4);font-size:0.6em;padding:1px 7px;border-radius:10px;font-weight:700;">🏪 픽업</span>`
+          : `<span style="background:var(--blue-dim);color:var(--blue);border:1px solid rgba(88,166,255,.4);font-size:0.6em;padding:1px 7px;border-radius:10px;font-weight:700;">🚚 배달</span>`;
+
+        const addrLine = isPickup
+          ? `<div class="d-item-addr" style="color:var(--orange);">🏪 매장 방문 수령</div>`
+          : `<div class="d-item-addr">${o.addr || '주소 없음'}</div>`;
+
+        const actionBtns = isPickup ? `
+          <button class="d-btn" style="flex:2;background:var(--orange-dim);color:var(--orange);border-color:var(--orange);" onclick="event.stopPropagation();quickStatus(event,'${o.id}','준비중')">📦 준비중</button>
+          <button class="d-btn" style="background:var(--green-dim);color:var(--green);border-color:var(--green);" onclick="event.stopPropagation();quickStatus(event,'${o.id}','배송완료')">✅ 픽업완료</button>
+        ` : `
+          <a href="https://map.kakao.com/link/search/${encodeURIComponent(o.addr || '')}" target="_blank" class="d-btn primary"><i class="fas fa-location-arrow"></i> 길찾기</a>
+          <button class="d-btn" onclick="event.stopPropagation();quickStatus(event,'${o.id}','배송중')">🚚 배송중</button>
+          <button class="d-btn" style="background:var(--green-dim);color:var(--green);border-color:var(--green);" onclick="event.stopPropagation();quickStatus(event,'${o.id}','배송완료')">✅ 완료</button>
+        `;
+
+        return `
+          <div class="delivery-item ${isPickup ? 'pickup-item' : ''}" id="d-item-${o.id}" onclick="focusOrder('${o.id}')">
+            <div class="d-item-header">
+              <span class="d-item-name">${o.name} 님</span>
+              <div style="display:flex;gap:4px;align-items:center;">
+                ${typeTag}
+                <span class="status-badge ${o.status}" style="font-size:0.6em;padding:1px 6px;">${o.status}</span>
+              </div>
+            </div>
+            ${addrLine}
+            <div class="d-item-actions">${actionBtns}</div>
           </div>
-          <div class="d-item-addr">${o.addr}</div>
-          <div class="d-item-actions">
-            <a href="https://map.kakao.com/link/search/${encodeURIComponent(o.addr || '')}" target="_blank" class="d-btn primary"><i class="fas fa-location-arrow"></i> 길찾기</a>
-            <button class="d-btn" onclick="event.stopPropagation();quickStatus(event,'${o.id}','배송중')">🚚 배송중</button>
-            <button class="d-btn" style="background:var(--green-dim);color:var(--green);border-color:var(--green);" onclick="event.stopPropagation();quickStatus(event,'${o.id}','배송완료')">✅ 완료</button>
-          </div>
-        </div>
-      `).join('');
-      
+        `;
+      }).join('');
+
       updateMapMarkers();
     }
 
@@ -2665,13 +2716,18 @@
       wrap.innerHTML = filtered.map(o => {
         const dt = new Date(o.timestamp), ds = `${dt.getMonth() + 1}/${dt.getDate()} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
         const prev = o.items.map(i => i.name.split('(')[0].trim()).join(', ');
-        return `<div class="order-row" id="row-${o.id}" onclick="toggleRow('${o.id}')">
+        const isPickup = o.type === 'pickup';
+        const typeClass = isPickup ? 'type-pickup' : 'type-delivery';
+        const badge = isPickup 
+          ? '<span class="type-badge pickup"><i class="fas fa-store"></i> 픽업</span>' 
+          : '<span class="type-badge delivery"><i class="fas fa-truck"></i> 배송</span>';
+
+        return `<div class="order-row ${typeClass}" id="row-${o.id}" onclick="toggleRow('${o.id}')">
       <div class="order-summary-row">
         <div class="order-num">#${o.id.slice(-4)}</div>
         <div>
           <div class="order-customer-name">
-            ${o.type === 'pickup' ? '<span style="color:var(--orange);margin-right:4px;">[픽업]</span>' : '<span style="color:var(--blue);margin-right:4px;">[배송]</span>'}
-            ${o.name} 님
+            ${badge}${o.name} 님
           </div>
           <div class="order-customer-tel">${o.tel}</div>
           <div class="order-items-preview">${prev}</div>
