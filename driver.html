@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>국가대표 배송매니저</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- [수정됨] Firebase SDK 버전을 구체적인 숫자(9.23.0)로 변경했습니다 -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        .safe-area { padding-bottom: env(safe-area-inset-bottom); }
+        .order-card { border-left: 5px solid #3b82f6; }
+        .order-card.delivering { border-left-color: #a855f7; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <header class="bg-green-600 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-md">
+        <h1 class="text-xl font-bold">국가대표 배송 <span id="driverName" class="text-sm font-normal"></span></h1>
+        <span class="bg-green-800 px-2 py-1 rounded text-xs">업무 중</span>
+    </header>
+
+    <main class="p-4 mb-20" id="deliveryList">
+        <div class="text-center py-10 text-gray-500" id="loading">
+            <i class="fas fa-spinner fa-spin text-3xl mb-2"></i>
+            <p>데이터를 불러오는 중입니다...</p>
+        </div>
+    </main>
+
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around items-center py-3 safe-area shadow-lg">
+        <button class="flex flex-col items-center text-green-600">
+            <i class="fas fa-truck text-xl"></i>
+            <span class="text-xs mt-1">배송목록</span>
+        </button>
+        <button class="flex flex-col items-center text-gray-400">
+            <i class="fas fa-check-circle text-xl"></i>
+            <span class="text-xs mt-1">완료내역</span>
+        </button>
+    </nav>
+
+    <script>
+        // 사용자님의 Firebase 설정값 유지
+        const firebaseConfig = {
+            apiKey: "AIzaSyBBhhlEVXr6gCoepGK6dHhtHWi-AuQCfkw",
+            authDomain: "national-team-88be2.firebaseapp.com",
+            databaseURL: "https://national-team-88be2-default-rtdb.firebaseio.com",
+            projectId: "national-team-88be2",
+            storageBucket: "national-team-88be2.firebasestorage.app",
+            messagingSenderId: "884114714635",
+            appId: "1:884114714635:web:8538d763d87b08fe74d70e",
+            measurementId: "G-6TJZ9GVWR1"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        function loadDeliveries() {
+            const listContainer = document.getElementById('deliveryList');
+            
+            // 실시간 데이터 감시
+            database.ref('orders').on('value', (snapshot) => {
+                listContainer.innerHTML = '';
+                let hasData = false;
+
+                if (!snapshot.exists()) {
+                    listContainer.innerHTML = '<div class="text-center py-20 text-gray-400">주문 데이터가 아예 없습니다.</div>';
+                    return;
+                }
+
+                snapshot.forEach((childSnapshot) => {
+                    const order = childSnapshot.val();
+                    const orderId = childSnapshot.key;
+
+                    // [중요] 상태가 '준비완료' 또는 '배송중'인 주문만 화면에 표시
+                    if(order.status === '준비완료' || order.status === '배송중') {
+                        hasData = true;
+                        const card = document.createElement('div');
+                        card.className = `bg-white rounded-lg shadow-sm mb-4 p-4 order-card ${order.status === '배송중' ? 'delivering' : ''}`;
+                        card.innerHTML = `
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-xs font-bold text-gray-400">주문번호: ${orderId.slice(-6)}</span>
+                                <span class="px-2 py-1 rounded text-xs ${order.status === '배송중' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">${order.status}</span>
+                            </div>
+                            <h2 class="text-lg font-bold mb-1">${order.customerName || '고객명 없음'}</h2>
+                            <p class="text-gray-600 text-sm mb-3"><i class="fas fa-map-marker-alt mr-1"></i> ${order.addr || '주소 정보 없음'}</p>
+                            
+                            <div class="grid grid-cols-2 gap-2 mt-4">
+                                <button onclick="openNavi('${order.addr}')" class="bg-gray-800 text-white py-3 rounded-md font-bold text-sm">
+                                    <i class="fas fa-location-arrow mr-1"></i> 길안내
+                                </button>
+                                ${order.status === '준비완료' 
+                                    ? `<button onclick="updateStatus('${orderId}', '배송중')" class="bg-blue-500 text-white py-3 rounded-md font-bold text-sm">배송시작</button>`
+                                    : `<button onclick="updateStatus('${orderId}', '배송완료')" class="bg-green-500 text-white py-3 rounded-md font-bold text-sm">배송완료</button>`
+                                }
+                            </div>
+                        `;
+                        listContainer.appendChild(card);
+                    }
+                });
+
+                if(!hasData) {
+                    listContainer.innerHTML = '<div class="text-center py-20 text-gray-400">현재 배송 대기 중인 주문이 없습니다.<br><br><small>(상태가 "준비완료"인 주문만 여기에 나타납니다)</small></div>';
+                }
+            });
+        }
+
+        function openNavi(address) {
+            if(!address || address === '주소 정보 없음') {
+                alert('주소가 유효하지 않습니다.');
+                return;
+            }
+            const url = "https://map.kakao.com/link/search/" + encodeURIComponent(address);
+            window.open(url, '_blank');
+        }
+
+        function updateStatus(orderId, newStatus) {
+            if(confirm(`상태를 [${newStatus}](으)로 변경하시겠습니까?`)) {
+                database.ref('orders/' + orderId).update({
+                    status: newStatus,
+                    deliveryTime: new Date().toISOString()
+                }).then(() => {
+                    alert('변경되었습니다.');
+                }).catch((error) => {
+                    alert('오류 발생: ' + error.message);
+                });
+            }
+        }
+
+        window.onload = loadDeliveries;
+    </script>
+</body>
+</html>
