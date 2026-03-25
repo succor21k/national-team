@@ -2090,12 +2090,15 @@
             <i class="fas fa-magnifying-glass"></i>
             <input class="search-input" type="text" id="deliverySearch" placeholder="주소, 이름 검색..." oninput="renderDeliveryList()">
           </div>
-          <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px;">
-            <button onclick="openRouteOptimizerGoogle()" class="d-btn primary" style="flex:1;padding:10px;font-size:0.8em;">
+          <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;">
+            <button onclick="openRouteOptimizerGoogle()" class="d-btn primary" style="flex:1;min-width:110px;padding:10px;font-size:0.8em;">
               <i class="fab fa-google"></i> 구글 최적 경로
             </button>
-            <button onclick="openRouteOptimizerNaver()" class="d-btn" style="flex:1;padding:10px;font-size:0.8em;background:var(--green-dim);color:var(--green);border-color:var(--green);">
+            <button onclick="openRouteOptimizerNaver()" class="d-btn" style="flex:1;min-width:110px;padding:10px;font-size:0.8em;background:var(--green-dim);color:var(--green);border-color:var(--green);">
               🗺 네이버 경로
+            </button>
+            <button onclick="callDriver()" class="d-btn" style="flex:1;min-width:110px;padding:10px;font-size:0.8em;background:var(--orange-dim);color:var(--orange);border-color:var(--orange);">
+              📞 기사님 호출
             </button>
           </div>
           <div class="delivery-list" id="deliveryList"></div>
@@ -2243,6 +2246,13 @@
                   <label>매장 주소 (오시는 길)</label>
                   <div class="pw-input-wrap">
                     <input class="pw-input" type="text" id="shopAddr" placeholder="예: 대전광역시 유성구 ..."
+                      style="padding-right:14px" />
+                  </div>
+                </div>
+                <div class="pw-field">
+                  <label>기사님 연락처</label>
+                  <div class="pw-input-wrap">
+                    <input class="pw-input" type="tel" id="shopDriverTel" placeholder="예: 010-0000-0000"
                       style="padding-right:14px" />
                   </div>
                 </div>
@@ -2538,6 +2548,15 @@
       const url = `https://map.naver.com/v5/directions/-/${firstAddr},,덜지없음/car`;
       window.open(url, '_blank');
       if (orders.length > 1) toast(`⚠️ 네이버는 다중 경유지가 어려울 수 있어요. 구글 다중 경유지를 추청합니다.`);
+    }
+
+    function callDriver() {
+      const info = getShopInfo();
+      if (!info.driverTel) {
+        toast('설정 탭에서 기사님 연락처를 먼저 입력해주세요.');
+        return;
+      }
+      window.location.href = 'tel:' + info.driverTel.replace(/[^0-9]/g, '');
     }
 
     let dMap = null, dMarkers = [];
@@ -3013,7 +3032,7 @@
        SETTINGS INFO
     ════════════════════════════════ */
     function getShopInfo() {
-      const def = { tel: '042-000-0000', bankName: '농협은행', account: '0000-0000-0000-0000', holder: '국가대표' };
+      const def = { tel: '042-000-0000', bankName: '농협은행', account: '0000-0000-0000-0000', holder: '국가대표', driverTel: '' };
       try { return Object.assign({}, def, JSON.parse(localStorage.getItem('sinsun_shop_info') || '{}')); } catch (e) { return def; }
     }
     function saveShopInfo() {
@@ -3022,13 +3041,14 @@
       const account = document.getElementById('shopAccount').value.trim();
       const holder = document.getElementById('shopAccountHolder').value.trim();
       const kakaoId = document.getElementById('shopKakaoId').value.trim();
+      const driverTel = document.getElementById('shopDriverTel') ? document.getElementById('shopDriverTel').value.trim() : '';
       if (!tel) { toast('전화번호를 입력해 주세요.'); return; }
       if (!bankName) { toast('은행명을 입력해 주세요.'); return; }
       if (!account) { toast('계좌번호를 입력해 주세요.'); return; }
       if (!holder) { toast('예금주를 입력해 주세요.'); return; }
-      localStorage.setItem('sinsun_shop_info', JSON.stringify({ tel, bankName, account, holder, kakaoId }));
+      localStorage.setItem('sinsun_shop_info', JSON.stringify({ tel, bankName, account, holder, kakaoId, driverTel }));
 
-      const info = { tel, bankName, account, holder, kakaoId };
+      const info = { tel, bankName, account, holder, kakaoId, driverTel };
       // Firebase Cloud 동기화 (가게 정보)
       if (database) {
         database.ref('shop_info').set(info);
@@ -3045,6 +3065,7 @@
       document.getElementById('shopAccount').value = info.account;
       document.getElementById('shopAccountHolder').value = info.holder;
       document.getElementById('shopKakaoId').value = info.kakaoId || '';
+      if (document.getElementById('shopDriverTel')) document.getElementById('shopDriverTel').value = info.driverTel || '';
     }
     function updateDataInfo() {
       const o = getOrders(), p = getProducts();
