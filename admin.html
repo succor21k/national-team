@@ -2418,6 +2418,34 @@
           toast("❌ 실시간 데이터 로드 실패: " + err.message);
         }
       });
+
+      // ── 추가: 품목, 가게 정보, 비밀번호 동기화 ──
+      database.ref('products').on('value', snapshot => {
+        const prods = snapshot.val();
+        if (prods) {
+          localStorage.setItem('sinsun_products', JSON.stringify(prods));
+          if (document.getElementById('page-products').classList.contains('active')) {
+            renderProducts();
+          }
+        }
+      });
+
+      database.ref('shop_info').on('value', snapshot => {
+        const info = snapshot.val();
+        if (info) {
+          localStorage.setItem('sinsun_shop_info', JSON.stringify(info));
+          if (document.getElementById('page-settings').classList.contains('active')) {
+            loadShopInfoToForm();
+          }
+        }
+      });
+
+      database.ref('admin_pw').on('value', snapshot => {
+        const pw = snapshot.val();
+        if (pw) {
+          localStorage.setItem('sinsun_admin_pw', pw);
+        }
+      });
     }
 
 
@@ -2452,6 +2480,7 @@
     function resetPassword() {
       if (!confirm('비밀번호를 초기값(admin1234)으로 초기화하시겠습니까?')) return;
       localStorage.removeItem('sinsun_admin_pw');
+      if (database) database.ref('admin_pw').remove();
       attempts = 0; lockUntil = 0;
       document.getElementById('loginPw').value = '';
       document.getElementById('loginError').innerHTML = '<span style="color:var(--green)"><i class="fas fa-check-circle"></i> 초기화 완료! 비밀번호: admin1234</span>';
@@ -2466,6 +2495,7 @@
       if (nw.length < 6) { msg.textContent = '새 비밀번호는 6자 이상이어야 합니다.'; err.classList.add('show'); return; }
       if (nw !== cf) { msg.textContent = '새 비밀번호가 일치하지 않습니다.'; err.classList.add('show'); return; }
       localStorage.setItem('sinsun_admin_pw', nw);
+      if (database) database.ref('admin_pw').set(nw);
       ['pwCurrent', 'pwNew', 'pwConfirm'].forEach(f => document.getElementById(f).value = '');
       toast('✅ 비밀번호가 변경되었습니다.');
     }

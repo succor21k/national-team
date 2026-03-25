@@ -3,47 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>국가대표 배송매니저</title>
+    <title>국가대표 배송매니저 (지도통합)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <!-- [수정됨] Firebase SDK 버전을 구체적인 숫자(9.23.0)로 변경했습니다 -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <!-- Kakao Map API (발급받은 JavaScript 키를 입력해야 실제 지도가 뜹니다) -->
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_JS_KEY&libraries=services"></script>
 
     <style>
-        .safe-area { padding-bottom: env(safe-area-inset-bottom); }
+        #map { width: 100%; height: 350px; border-bottom: 2px solid #ddd; }
         .order-card { border-left: 5px solid #3b82f6; }
-        .order-card.delivering { border-left-color: #a855f7; }
+        .order-card.selected { border: 2px solid #16a34a; background-color: #f0fdf4; }
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
 
-    <header class="bg-green-600 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-md">
-        <h1 class="text-xl font-bold">국가대표 배송 <span id="driverName" class="text-sm font-normal"></span></h1>
-        <span class="bg-green-800 px-2 py-1 rounded text-xs">업무 중</span>
-    </header>
+    <!-- 상단 지도 영역 (고정) -->
+    <div id="map" class="sticky top-0 z-40 bg-gray-200 flex items-center justify-center">
+        <p class="text-gray-500 text-sm">지도를 불러오는 중...</p>
+    </div>
 
+    <!-- 배송 목록 영역 -->
     <main class="p-4 mb-20" id="deliveryList">
-        <div class="text-center py-10 text-gray-500" id="loading">
-            <i class="fas fa-spinner fa-spin text-3xl mb-2"></i>
-            <p>데이터를 불러오는 중입니다...</p>
-        </div>
+        <!-- 배송 카드가 여기에 렌더링됩니다 -->
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around items-center py-3 safe-area shadow-lg">
-        <button class="flex flex-col items-center text-green-600">
-            <i class="fas fa-truck text-xl"></i>
-            <span class="text-xs mt-1">배송목록</span>
+    <!-- 하단 네비게이션 -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around items-center py-3 z-50 shadow-lg">
+        <button onclick="location.reload()" class="flex flex-col items-center text-green-600 font-bold">
+            <i class="fas fa-sync-alt text-xl"></i>
+            <span class="text-[10px] mt-1">새로고침</span>
         </button>
         <button class="flex flex-col items-center text-gray-400">
-            <i class="fas fa-check-circle text-xl"></i>
-            <span class="text-xs mt-1">완료내역</span>
+            <i class="fas fa-list text-xl"></i>
+            <span class="text-[10px] mt-1">배송목록</span>
         </button>
     </nav>
 
     <script>
-        // 사용자님의 Firebase 설정값 유지
+        // 1. 설정 (Firebase 및 매장 정보)
         const firebaseConfig = {
             apiKey: "AIzaSyBBhhlEVXr6gCoepGK6dHhtHWi-AuQCfkw",
             authDomain: "national-team-88be2.firebaseapp.com",
@@ -51,86 +53,115 @@
             projectId: "national-team-88be2",
             storageBucket: "national-team-88be2.firebasestorage.app",
             messagingSenderId: "884114714635",
-            appId: "1:884114714635:web:8538d763d87b08fe74d70e",
-            measurementId: "G-6TJZ9GVWR1"
+            appId: "1:884114714635:web:8538d763d87b08fe74d70e"
         };
-        
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
+        const STORE_ADDR = "대전광역시 서구 대덕대로 226"; 
 
-        function loadDeliveries() {
-            const listContainer = document.getElementById('deliveryList');
+        let map, geocoder;
+        let markers = [];
+
+        // 2. 지도 초기화
+        function initMap() {
+            const mapContainer = document.getElementById('map');
+            const mapOption = { 
+                center: new kakao.maps.LatLng(36.3504, 127.3845), // 대전 시청 기준
+                level: 5 
+            };
+            map = new kakao.maps.Map(mapContainer, mapOption);
+            geocoder = new kakao.maps.services.Geocoder();
             
-            // 실시간 데이터 감시
-            database.ref('orders').on('value', (snapshot) => {
-                listContainer.innerHTML = '';
-                let hasData = false;
+            loadOrders();
+        }
 
-                if (!snapshot.exists()) {
-                    listContainer.innerHTML = '<div class="text-center py-20 text-gray-400">주문 데이터가 아예 없습니다.</div>';
-                    return;
-                }
+        // 3. 주문 로드 및 지도에 뿌리기
+        function loadOrders() {
+            database.ref('orders').on('value', (snapshot) => {
+                const listContainer = document.getElementById('deliveryList');
+                listContainer.innerHTML = '';
+                
+                // 기존 마커 제거
+                markers.forEach(m => m.setMap(null));
+                markers = [];
 
                 snapshot.forEach((childSnapshot) => {
                     const order = childSnapshot.val();
                     const orderId = childSnapshot.key;
 
-                    // [중요] 상태가 '준비완료' 또는 '배송중'인 주문만 화면에 표시
                     if(order.status === '준비완료' || order.status === '배송중') {
-                        hasData = true;
-                        const card = document.createElement('div');
-                        card.className = `bg-white rounded-lg shadow-sm mb-4 p-4 order-card ${order.status === '배송중' ? 'delivering' : ''}`;
-                        card.innerHTML = `
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="text-xs font-bold text-gray-400">주문번호: ${orderId.slice(-6)}</span>
-                                <span class="px-2 py-1 rounded text-xs ${order.status === '배송중' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">${order.status}</span>
-                            </div>
-                            <h2 class="text-lg font-bold mb-1">${order.customerName || '고객명 없음'}</h2>
-                            <p class="text-gray-600 text-sm mb-3"><i class="fas fa-map-marker-alt mr-1"></i> ${order.addr || '주소 정보 없음'}</p>
-                            
-                            <div class="grid grid-cols-2 gap-2 mt-4">
-                                <button onclick="openNavi('${order.addr}')" class="bg-gray-800 text-white py-3 rounded-md font-bold text-sm">
-                                    <i class="fas fa-location-arrow mr-1"></i> 길안내
-                                </button>
-                                ${order.status === '준비완료' 
-                                    ? `<button onclick="updateStatus('${orderId}', '배송중')" class="bg-blue-500 text-white py-3 rounded-md font-bold text-sm">배송시작</button>`
-                                    : `<button onclick="updateStatus('${orderId}', '배송완료')" class="bg-green-500 text-white py-3 rounded-md font-bold text-sm">배송완료</button>`
-                                }
-                            </div>
-                        `;
-                        listContainer.appendChild(card);
+                        // 목록 추가
+                        renderOrderCard(order, orderId);
+                        // 지도에 마커 추가 (Geocoding)
+                        addMarker(order.addr, order.customerName);
                     }
                 });
+            });
+        }
 
-                if(!hasData) {
-                    listContainer.innerHTML = '<div class="text-center py-20 text-gray-400">현재 배송 대기 중인 주문이 없습니다.<br><br><small>(상태가 "준비완료"인 주문만 여기에 나타납니다)</small></div>';
+        // 주소를 좌표로 변환하여 지도에 마커 표시
+        function addMarker(address, name) {
+            geocoder.addressSearch(address, function(result, status) {
+                if (status === kakao.maps.services.Status.OK) {
+                    const coords = new kakao.maps.LatLng(result[0].y, result[0].x);
+                    const marker = new kakao.maps.Marker({
+                        map: map,
+                        position: coords
+                    });
+                    
+                    const infowindow = new kakao.maps.InfoWindow({
+                        content: `<div style="padding:5px;font-size:12px;">${name}</div>`
+                    });
+                    
+                    kakao.maps.event.addListener(marker, 'click', function() {
+                        infowindow.open(map, marker);
+                    });
+
+                    markers.push(marker);
+                    
+                    // 마커들이 다 보이도록 지도 범위 조정 (선택사항)
+                    // const bounds = new kakao.maps.LatLngBounds();
+                    // markers.forEach(m => bounds.extend(m.getPosition()));
+                    // map.setBounds(bounds);
                 }
             });
         }
 
-        function openNavi(address) {
-            if(!address || address === '주소 정보 없음') {
-                alert('주소가 유효하지 않습니다.');
-                return;
-            }
-            const url = "https://map.kakao.com/link/search/" + encodeURIComponent(address);
-            window.open(url, '_blank');
+        function renderOrderCard(order, orderId) {
+            const listContainer = document.getElementById('deliveryList');
+            const card = document.createElement('div');
+            card.className = "bg-white rounded-lg shadow p-4 mb-3 order-card";
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-blue-600">${order.status}</span>
+                    <span class="text-xs text-gray-400">#${orderId.slice(-4)}</span>
+                </div>
+                <h3 class="text-lg font-bold">${order.customerName}</h3>
+                <p class="text-sm text-gray-600 mb-3">${order.addr}</p>
+                <div class="flex gap-2">
+                    <button onclick="window.open('https://map.kakao.com/?sName=${encodeURIComponent(STORE_ADDR)}&eName=${encodeURIComponent(order.addr)}')" 
+                            class="flex-1 bg-gray-800 text-white py-2 rounded text-sm font-bold">길찾기</button>
+                    <button onclick="updateStatus('${orderId}', '${order.status === '준비완료' ? '배송중' : '배송완료'}')" 
+                            class="flex-1 bg-green-600 text-white py-2 rounded text-sm font-bold">
+                            ${order.status === '준비완료' ? '배송시작' : '배송완료'}
+                    </button>
+                </div>
+            `;
+            listContainer.appendChild(card);
         }
 
-        function updateStatus(orderId, newStatus) {
-            if(confirm(`상태를 [${newStatus}](으)로 변경하시겠습니까?`)) {
-                database.ref('orders/' + orderId).update({
-                    status: newStatus,
-                    deliveryTime: new Date().toISOString()
-                }).then(() => {
-                    alert('변경되었습니다.');
-                }).catch((error) => {
-                    alert('오류 발생: ' + error.message);
-                });
+        function updateStatus(orderId, nextStatus) {
+            if(confirm(`상태를 [${nextStatus}]로 변경할까요?`)) {
+                database.ref('orders/' + orderId).update({ status: nextStatus });
             }
         }
 
-        window.onload = loadDeliveries;
+        // 카카오 지도 로드 후 실행
+        if (typeof kakao !== 'undefined') {
+            kakao.maps.load(initMap);
+        } else {
+            document.getElementById('map').innerHTML = "<p class='p-4 text-center'>카카오 지도 키를 설정해주세요.</p>";
+        }
     </script>
 </body>
 </html>
